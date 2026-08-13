@@ -1,0 +1,20 @@
+# Python / Byte-code / Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data outputs & Synthetic data (too large for git)
+datos_sinteticos/
+*.csv
+*.ndjson
+
+# Environments & IDEs
+.venv/
+env/
+venv/
+.vscode/
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
