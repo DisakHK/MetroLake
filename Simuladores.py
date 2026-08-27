@@ -90,7 +90,7 @@ class SimuladorAcelerometro:
             "timestamp": ts.isoformat(),
             "vibracion_rms_mm_s2": rms,
             "frecuencia_hz": round(random.uniform(5, 120), 2),
-            "temperatura_riel_c": round(random.gauss(28, 5), 1),
+        
             "fatiga_acumulada": round(min(1.0, sensor["fatiga_base"] + rms * 0.02), 4),
             "es_anomalia": es_anomalia,
             "pasajeros_estimados": pax,
