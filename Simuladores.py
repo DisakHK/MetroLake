@@ -411,8 +411,10 @@ def generar_dataset_completo(
 
 # ─── Modo streaming (simula eventos en tiempo real) ─────────────────────────────
 
-def modo_streaming(intervalo_seg: float = 1.0, duracion_seg: int = 60):
+def modo_streaming(intervalo_seg: float = 1.0, duracion_seg: int = 60,
+                  directorio_salida: str = "datos_streaming"):
     print(f"\n  >> Modo streaming iniciado (intervalo={intervalo_seg}s, duracion={duracion_seg}s)")
+    print(f"  Guardando resultados en: {directorio_salida}")
     print(f"  Presiona Ctrl+C para detener.\n")
 
     sim_acc = SimuladorAcelerometro()
@@ -421,6 +423,7 @@ def modo_streaming(intervalo_seg: float = 1.0, duracion_seg: int = 60):
 
     inicio = time.time()
     contador = 0
+    eventos = []
 
     try:
         while time.time() - inicio < duracion_seg:
@@ -438,13 +441,22 @@ def modo_streaming(intervalo_seg: float = 1.0, duracion_seg: int = 60):
                 evento = sim_siata.generar_lectura(timestamp=ts)
 
             evento["_tipo_fuente"] = tipo
+            eventos.append(evento)
             print(json.dumps(evento, ensure_ascii=False, default=str))
             contador += 1
             time.sleep(intervalo_seg)
     except KeyboardInterrupt:
-        pass
+        print("\n  [INTERRUPCION] Se detectó Ctrl+C. Finalizando captura...")
+
+    os.makedirs(directorio_salida, exist_ok=True)
+    timestamp_archivo = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ruta_json = os.path.join(directorio_salida, f"streaming_{timestamp_archivo}.json")
+
+    with open(ruta_json, "w", encoding="utf-8") as f:
+        json.dump(eventos, f, ensure_ascii=False, indent=2, default=str)
 
     print(f"\n  [STOP] Streaming detenido. Total eventos emitidos: {contador}")
+    print(f"  [OK] Datos guardados en: {ruta_json}")
 
 
 # ─── Punto de entrada ──────────────────────────────────────────────────────────
@@ -454,7 +466,8 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1 and sys.argv[1] == "streaming":
         duracion = int(sys.argv[2]) if len(sys.argv) > 2 else 60
-        modo_streaming(intervalo_seg=0.5, duracion_seg=duracion)
+        salida = sys.argv[3] if len(sys.argv) > 3 else "datos_streaming"
+        modo_streaming(intervalo_seg=0.5, duracion_seg=duracion, directorio_salida=salida)
     else:
         dias = int(sys.argv[1]) if len(sys.argv) > 1 else 3
         generar_dataset_completo(dias=dias, directorio_salida="datos_sinteticos")

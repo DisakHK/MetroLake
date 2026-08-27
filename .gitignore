@@ -9,6 +9,7 @@ PruebaSimuladoresAll.py
 
 # Data outputs & Synthetic data (too large for git)
 datos_sinteticos/
+datos_streaming/
 *.csv
 *.ndjson
 
