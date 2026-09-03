@@ -68,9 +68,10 @@ class SimuladorClima:
         for pluv, estacion in zip(self.PLUVIOMETROS, datos_api):
             current = estacion.get("current", {})
             daily = estacion.get("daily", {})
+            precipitacion_diaria = daily.get("precipitation_sum") or [0.0]
             self.cache_api[pluv["id"]] = {
                 "precipitacion": current.get("precipitation", 0.0),
-                "precip_acumulada": daily.get("precipitation_sum", [0.0])[0],
+                "precip_acumulada": precipitacion_diaria[0],
                 "humedad": current.get("relative_humidity_2m", 0),
                 "temperatura": current.get("temperature_2m", 0.0),
                 "vel_viento": current.get("wind_speed_10m", 0.0),
@@ -79,26 +80,38 @@ class SimuladorClima:
         self.ultima_llamada_api = ahora
         return True
 
+    def _generar_fallback(self, ts: datetime) -> Dict:
+        estacional = self._patron_estacional(ts)
+        factor_hora = 1.0 + 0.8 * math.exp(-((ts.hour - 16) ** 2) / 8)
+        esta_lloviendo = random.random() < estacional * 0.6
+        precipitacion = round(
+            min(120, random.expovariate(1 / (15 * estacional * factor_hora)))
+            if esta_lloviendo else random.uniform(0, 0.5),
+            2,
+        )
+        return {
+            "precipitacion": precipitacion,
+            "precip_acumulada": round(precipitacion * random.uniform(1, 8), 2),
+            "humedad": round(min(100, 60 + precipitacion * 0.5 + random.gauss(0, 5)), 1),
+            "temperatura": round(random.gauss(22, 3) - precipitacion * 0.05, 1),
+            "vel_viento": round(random.gauss(12, 5), 1),
+            "dir_viento": random.choice(["N", "NE", "E", "SE", "S", "SO", "O", "NO"]),
+        }
+
     def generar_lectura(self, pluviometro: Optional[Dict] = None, timestamp: Optional[datetime] = None) -> Dict:
         pluv = pluviometro or random.choice(self.PLUVIOMETROS)
         ts = timestamp or datetime.now()
-        datos = self.cache_api.get(pluv["id"]) if abs((datetime.now() - ts).total_seconds()) < 7200 and self._intentar_api() else None
-        if datos:
-            precipitacion = datos["precipitacion"]
-            precip_acumulada = datos["precip_acumulada"]
-            humedad, temperatura = datos["humedad"], datos["temperatura"]
-            vel_viento, dir_viento = datos["vel_viento"], datos["dir_viento"]
-            esta_lloviendo = precipitacion > 0.0
-        else:
-            estacional = self._patron_estacional(ts)
-            factor_hora = 1.0 + 0.8 * math.exp(-((ts.hour - 16) ** 2) / 8)
-            esta_lloviendo = random.random() < estacional * 0.6
-            precipitacion = round(min(120, random.expovariate(1 / (15 * estacional * factor_hora))) if esta_lloviendo else random.uniform(0, 0.5), 2)
-            humedad = round(min(100, 60 + precipitacion * 0.5 + random.gauss(0, 5)), 1)
-            temperatura = round(random.gauss(22, 3) - precipitacion * 0.05, 1)
-            precip_acumulada = round(precipitacion * random.uniform(1, 8), 2)
-            vel_viento = round(random.gauss(12, 5), 1)
-            dir_viento = random.choice(["N", "NE", "E", "SE", "S", "SO", "O", "NO"])
+        es_actual = abs((datetime.now() - ts).total_seconds()) < 7200
+        datos = None
+        if es_actual and self._intentar_api():
+            datos = self.cache_api.get(pluv["id"])
+        if datos is None:
+            datos = self._generar_fallback(ts)
+        precipitacion = datos["precipitacion"]
+        precip_acumulada = datos["precip_acumulada"]
+        humedad, temperatura = datos["humedad"], datos["temperatura"]
+        vel_viento, dir_viento = datos["vel_viento"], datos["dir_viento"]
+        esta_lloviendo = precipitacion > 0.0
         return {
             "lectura_id": f"CLIMA-{ts.strftime('%Y%m%d%H%M')}-{pluv['id']}", "pluviometro_id": pluv["id"],
             "nombre_estacion": pluv["nombre"], "latitud": pluv["lat"], "longitud": pluv["lon"], "timestamp": ts.isoformat(),

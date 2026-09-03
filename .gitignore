@@ -3,10 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Scripts de prueba y desarrollo locales
-PruebaAPI.py
-PruebaSimuladoresAll.py
-
 # Data outputs & Synthetic data (too large for git)
 datos_sinteticos/
 datos_streaming/
