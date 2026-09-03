@@ -4,7 +4,7 @@ Proyecto de simulacion y generacion de datos para el Metro de Medellin. El siste
 
 - **Torniquetes y pasajeros:** entradas, salidas, ocupacion estimada y horas pico por estacion.
 - **Vibracion:** telemetria de acelerometros instalada en los tramos de la via.
-- **Clima:** precipitacion, humedad, temperatura, viento y nivel de alerta por pluviometro.
+- **Clima:** precipitacion, acumulado diario, estado de lluvia y nivel de alerta por pluviometro.
 
 El clima intenta obtener datos actuales desde la API publica de [Open-Meteo](https://open-meteo.com/). Si no hay conexion, la respuesta falla o la fecha solicitada no es actual, se generan datos climaticos sinteticos mediante el fallback incluido en `SimuladorClima`.
 
@@ -176,26 +176,24 @@ La clase consulta:
 https://api.open-meteo.com/v1/forecast
 ```
 
-Solicita datos actuales de:
+Solicita únicamente los datos necesarios para el análisis de precipitaciones:
 
-- Temperatura.
-- Humedad relativa.
-- Precipitacion.
-- Velocidad y direccion del viento.
+- Precipitacion actual (`precipitation`).
+- Precipitacion acumulada del dia (`precipitation_sum`).
 
-Tambien solicita la precipitacion acumulada del dia. La consulta usa las coordenadas de siete pluviometros del Valle de Aburra y la zona horaria `America/Bogota`.
+El `nivel_alerta` y `esta_lloviendo` no son campos que entregue Open-Meteo: se calculan en el proyecto a partir de la precipitacion. La consulta usa las coordenadas de siete pluviometros del Valle de Aburra y la zona horaria `America/Bogota`.
 
 La respuesta se almacena en memoria durante cinco minutos para evitar consultas repetidas.
 
 ### Cuando se usa el fallback
 
-Se generan datos sinteticos cuando ocurre cualquiera de estas situaciones:
+El simulador no sustituye los datos validos de Open-Meteo. Genera datos sinteticos unicamente cuando ocurre cualquiera de estas situaciones:
 
 - No hay conexion a internet.
 - La API devuelve un error HTTP o una respuesta no valida.
 - La lectura corresponde a una fecha con mas de dos horas de diferencia respecto a la hora actual.
 
-El fallback considera estacionalidad, hora del dia, probabilidad de lluvia, temperatura, humedad, viento y visibilidad. Por eso el sistema sigue funcionando aunque la API no este disponible.
+Si la API responde, sus valores de precipitacion se conservan. Si la API no esta disponible o falta un valor, el fallback genera únicamente los valores de precipitacion necesarios para conservar el mismo esquema y permitir que el batch o el streaming continuen funcionando.
 
 Ejemplo de uso directo:
 

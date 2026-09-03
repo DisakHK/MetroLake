@@ -42,11 +42,6 @@ class SimuladorClima:
                 return nivel["nivel"]
         return "verde"
 
-    @staticmethod
-    def _grados_a_cardinal(grados: float) -> str:
-        direcciones = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
-        return direcciones[int(grados / 45 + 0.5) % 8]
-
     def _intentar_api(self) -> bool:
         ahora = datetime.now()
         if self.ultima_llamada_api and (ahora - self.ultima_llamada_api).total_seconds() < 300:
@@ -54,7 +49,7 @@ class SimuladorClima:
         params = {
             "latitude": ",".join(str(p["lat"]) for p in self.PLUVIOMETROS),
             "longitude": ",".join(str(p["lon"]) for p in self.PLUVIOMETROS),
-            "current": ["temperature_2m", "relative_humidity_2m", "precipitation", "wind_speed_10m", "wind_direction_10m"],
+            "current": ["precipitation"],
             "daily": ["precipitation_sum"], "timezone": "America/Bogota",
         }
         try:
@@ -72,10 +67,6 @@ class SimuladorClima:
             self.cache_api[pluv["id"]] = {
                 "precipitacion": current.get("precipitation", 0.0),
                 "precip_acumulada": precipitacion_diaria[0],
-                "humedad": current.get("relative_humidity_2m", 0),
-                "temperatura": current.get("temperature_2m", 0.0),
-                "vel_viento": current.get("wind_speed_10m", 0.0),
-                "dir_viento": self._grados_a_cardinal(current.get("wind_direction_10m", 0)),
             }
         self.ultima_llamada_api = ahora
         return True
@@ -92,10 +83,6 @@ class SimuladorClima:
         return {
             "precipitacion": precipitacion,
             "precip_acumulada": round(precipitacion * random.uniform(1, 8), 2),
-            "humedad": round(min(100, 60 + precipitacion * 0.5 + random.gauss(0, 5)), 1),
-            "temperatura": round(random.gauss(22, 3) - precipitacion * 0.05, 1),
-            "vel_viento": round(random.gauss(12, 5), 1),
-            "dir_viento": random.choice(["N", "NE", "E", "SE", "S", "SO", "O", "NO"]),
         }
 
     def generar_lectura(self, pluviometro: Optional[Dict] = None, timestamp: Optional[datetime] = None) -> Dict:
@@ -109,16 +96,12 @@ class SimuladorClima:
             datos = self._generar_fallback(ts)
         precipitacion = datos["precipitacion"]
         precip_acumulada = datos["precip_acumulada"]
-        humedad, temperatura = datos["humedad"], datos["temperatura"]
-        vel_viento, dir_viento = datos["vel_viento"], datos["dir_viento"]
         esta_lloviendo = precipitacion > 0.0
         return {
             "lectura_id": f"CLIMA-{ts.strftime('%Y%m%d%H%M')}-{pluv['id']}", "pluviometro_id": pluv["id"],
             "nombre_estacion": pluv["nombre"], "latitud": pluv["lat"], "longitud": pluv["lon"], "timestamp": ts.isoformat(),
             "precipitacion_mm_h": precipitacion, "precipitacion_acumulada_dia_mm": precip_acumulada,
-            "humedad_relativa_pct": humedad, "temperatura_c": temperatura, "nivel_alerta": self._nivel_alerta(precipitacion),
-            "esta_lloviendo": esta_lloviendo, "velocidad_viento_km_h": vel_viento, "direccion_viento": dir_viento,
-            "visibilidad_km": round(max(0.5, 10 - precipitacion * 0.1 + random.gauss(0, 1)), 1),
+            "nivel_alerta": self._nivel_alerta(precipitacion), "esta_lloviendo": esta_lloviendo,
         }
 
     def generar_lote(self, n_lecturas: int = 50, inicio: Optional[datetime] = None, intervalo_min: int = 5) -> List[Dict]:
