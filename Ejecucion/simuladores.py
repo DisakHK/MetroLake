@@ -3,19 +3,19 @@
 import sys
 
 try:
-    from .accelerometer import SimuladorAcelerometro
+    from ..Fuentes.accelerometer import SimuladorAcelerometro
     from .dataset import generar_dataset_completo
-    from .serializers import exportar_csv, exportar_json, exportar_ndjson
+    from ..Persistencia.serializers import exportar_csv, exportar_json, exportar_ndjson
     from .streaming import modo_streaming
-    from .weather import SimuladorClima
-    from .turnstiles import SimuladorTorniquetes
+    from ..Fuentes.weather import SimuladorClima
+    from ..Fuentes.turnstiles import SimuladorTorniquetes
 except ImportError:
-    from accelerometer import SimuladorAcelerometro
-    from dataset import generar_dataset_completo
-    from serializers import exportar_csv, exportar_json, exportar_ndjson
-    from streaming import modo_streaming
-    from weather import SimuladorClima
-    from turnstiles import SimuladorTorniquetes
+    from Fuentes.accelerometer import SimuladorAcelerometro
+    from Ejecucion.dataset import generar_dataset_completo
+    from Persistencia.serializers import exportar_csv, exportar_json, exportar_ndjson
+    from Ejecucion.streaming import modo_streaming
+    from Fuentes.weather import SimuladorClima
+    from Fuentes.turnstiles import SimuladorTorniquetes
 
 
 def ejecutar_simuladores(dias=3, directorio_salida="datos_sinteticos"):

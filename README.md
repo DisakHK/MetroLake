@@ -43,6 +43,7 @@ Instala la dependencia:
 ```powershell
 python -m pip install --upgrade pip
 python -m pip install requests
+python -m pip install google-cloud-pubsub
 ```
 
 Verifica que Python este disponible:
@@ -56,37 +57,41 @@ python --version
 ```text
 ProyectoMetro/
 |-- README.md
-|-- Fuentes/
+|-- Fuentes/              # Generadores y fuentes de datos
 |   |-- accelerometer.py   # Simulador de telemetria de vibracion
 |   |-- config.py          # Estaciones, tramos y cantidad de sensores
-|   |-- dataset.py         # Generacion de datasets historicos
-|   |-- serializers.py     # Exportacion a JSON, CSV y NDJSON
-|   |-- simuladores.py     # Punto de entrada para ejecutar el proyecto
 |   |-- siata.py           # Alias de compatibilidad del nombre antiguo
-|   |-- streaming.py       # Generacion de eventos en tiempo real
 |   |-- turnstiles.py      # Simulador de torniquetes y pasajeros
 |   |-- vibration.py       # Alias historico del acelerometro
 |   |-- weather.py         # Logica exclusiva del clima
+|-- Ejecucion/            # Batch, streaming y coordinacion
+|   |-- dataset.py
+|   |-- simuladores.py
+|   `-- streaming.py
+|-- Persistencia/         # Exportacion a JSON, CSV y NDJSON
+|   `-- serializers.py
+|-- Integraciones/        # Conexion con servicios externos
+|   `-- publicador_gcp.py
 |-- datos_sinteticos/      # Salidas historicas, si se generan
 |-- datos_streaming/       # Salidas del modo streaming, si se generan
 |-- consulta_clima_api.py  # Consulta directa de datos actuales de Open-Meteo
 |-- ejecutar_simuladores.py# Lanzador de compatibilidad para todos los simuladores
 ```
 
-La ejecucion principal esta en `Fuentes/simuladores.py`. `weather.py` no ejecuta todos los simuladores ni genera archivos al importarse: contiene unicamente la clase `SimuladorClima` y su logica de API/fallback.
+La ejecucion principal esta en `Ejecucion/simuladores.py`. `Fuentes/weather.py` no ejecuta todos los simuladores ni genera archivos al importarse: contiene unicamente la clase `SimuladorClima` y su logica de API/fallback.
 
 ## 4. Ejecucion rapida
 
 Desde la raiz del proyecto, genera tres dias de datos historicos:
 
 ```powershell
-python -m Fuentes.simuladores
+python -m Ejecucion.simuladores
 ```
 
 Tambien se puede indicar la cantidad de dias:
 
 ```powershell
-python -m Fuentes.simuladores 1
+python -m Ejecucion.simuladores 1
 ```
 
 El comando crea o completa `datos_sinteticos/` con una carpeta por cada dia generado.
@@ -94,26 +99,26 @@ El comando crea o completa `datos_sinteticos/` con una carpeta por cada dia gene
 Para ejecutar el modo streaming durante 60 segundos:
 
 ```powershell
-python -m Fuentes.simuladores streaming
+python -m Ejecucion.simuladores streaming
 ```
 
 La sintaxis completa del streaming es:
 
 ```powershell
-python -m Fuentes.simuladores streaming <duracion_segundos> <directorio_salida>
+python -m Ejecucion.simuladores streaming <duracion_segundos> <directorio_salida>
 ```
 
 Ejemplo:
 
 ```powershell
-python -m Fuentes.simuladores streaming 120 datos_streaming
+python -m Ejecucion.simuladores streaming 120 datos_streaming
 ```
 
 Durante el streaming cada evento se imprime en la consola y, al terminar, se guarda un archivo JSON en el directorio indicado. Se puede detener antes con `Ctrl+C`; los eventos acumulados se exportan igualmente.
 
 ## 5. Generacion historica
 
-La funcion principal es `generar_dataset_completo` en `Fuentes/dataset.py`:
+La funcion principal es `generar_dataset_completo` en `Ejecucion/dataset.py`:
 
 ```python
 generar_dataset_completo(
@@ -146,7 +151,7 @@ El numero de registros depende de los intervalos. Por ejemplo, con un dia, `inte
 
 ## 6. Modo streaming
 
-`modo_streaming` esta en `Fuentes/streaming.py` y recibe:
+`modo_streaming` esta en `Ejecucion/streaming.py` y recibe:
 
 ```python
 modo_streaming(
@@ -164,7 +169,40 @@ En cada ciclo selecciona aleatoriamente una fuente con estos pesos aproximados:
 
 Cada evento recibe el campo adicional `_tipo_fuente`, cuyo valor es `vibracion`, `pasajeros` o `clima`.
 
-## 7. Funcionamiento del clima y fallback
+## 7. Publicacion directa en Google Cloud Pub/Sub
+
+El modulo `Integraciones/publicador_gcp.py` reutiliza los tres simuladores existentes y publica cada tipo de evento en un tema independiente:
+
+```text
+vibracion  -> tema de vibracion
+pasajeros  -> tema de pasajeros
+clima      -> tema de clima
+```
+
+Configura manualmente en PowerShell el proyecto y los tres temas que creaste en Google Cloud:
+
+```powershell
+$env:GCP_PROJECT_ID = "tu-proyecto-gcp-id"
+$env:GCP_TOPIC_VIBRACION = "tema-metro-vibracion"
+$env:GCP_TOPIC_PASAJEROS = "tema-metro-pasajeros"
+$env:GCP_TOPIC_CLIMA = "tema-metro-clima"
+```
+
+La cuenta que ejecute el programa necesita el rol `Pub/Sub Publisher`. Si ejecutas fuera de Google Cloud, configura también una cuenta de servicio. No subas esta clave al repositorio:
+
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\ruta\segura\cuenta-servicio.json"
+```
+
+Ejecuta el publicador desde la raíz del proyecto:
+
+```powershell
+python -m Integraciones.publicador_gcp
+```
+
+Por defecto publica durante 60 segundos. Puedes cambiar la duración y el intervalo con `GCP_DURACION_SEG` y `GCP_INTERVALO_SEG`. Este módulo no modifica los simuladores ni reemplaza el streaming local.
+
+## 8. Funcionamiento del clima y fallback
 
 La clase `SimuladorClima` esta en `Fuentes/weather.py`.
 
@@ -278,7 +316,7 @@ Formatos:
 - **CSV:** primera fila con nombres de campos y una fila por registro.
 - **NDJSON:** un objeto JSON por linea, apropiado para procesamiento por eventos o grandes volumenes.
 
-Los exportadores estan centralizados en `Fuentes/serializers.py`. Crean automaticamente las carpetas que no existan.
+Los exportadores estan centralizados en `Persistencia/serializers.py`. Crean automaticamente las carpetas que no existan.
 
 ## 10. Identificadores y campos importantes
 
@@ -354,20 +392,20 @@ Asegurate de ejecutar el comando desde la raiz de `ProyectoMetro`. El programa i
 Usa un directorio de salida diferente, por ejemplo:
 
 ```powershell
-python -c "from Fuentes.dataset import generar_dataset_completo; generar_dataset_completo(dias=1, directorio_salida='datos_nueva_ejecucion')"
+python -c "from Ejecucion.dataset import generar_dataset_completo; generar_dataset_completo(dias=1, directorio_salida='datos_nueva_ejecucion')"
 ```
 
 ## 13. Flujo general
 
 ```text
-Fuentes/simuladores.py
+Ejecucion/simuladores.py
         |
-        +--> Fuentes/dataset.py ---------> datos_sinteticos/YYYY-MM-DD/
+        +--> Ejecucion/dataset.py -------> datos_sinteticos/YYYY-MM-DD/
         |       |-- SimuladorTorniquetes
         |       |-- SimuladorAcelerometro
         |       `-- SimuladorClima --> Open-Meteo o fallback
         |
-        `--> Fuentes/streaming.py -------> datos_streaming/streaming_*.json
+        `--> Ejecucion/streaming.py -----> datos_streaming/streaming_*.json
                 |-- SimuladorTorniquetes
                 |-- SimuladorAcelerometro
                 `-- SimuladorClima

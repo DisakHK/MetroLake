@@ -6,15 +6,15 @@ import time
 from datetime import datetime
 
 try:
-    from .accelerometer import SimuladorAcelerometro
-    from .serializers import exportar_json
-    from .weather import SimuladorClima
-    from .turnstiles import SimuladorTorniquetes
+    from ..Fuentes.accelerometer import SimuladorAcelerometro
+    from ..Persistencia.serializers import exportar_json
+    from ..Fuentes.weather import SimuladorClima
+    from ..Fuentes.turnstiles import SimuladorTorniquetes
 except ImportError:
-    from accelerometer import SimuladorAcelerometro
-    from serializers import exportar_json
-    from weather import SimuladorClima
-    from turnstiles import SimuladorTorniquetes
+    from Fuentes.accelerometer import SimuladorAcelerometro
+    from Persistencia.serializers import exportar_json
+    from Fuentes.weather import SimuladorClima
+    from Fuentes.turnstiles import SimuladorTorniquetes
 
 
 def modo_streaming(intervalo_seg=1.0, duracion_seg=60, directorio_salida="datos_streaming"):

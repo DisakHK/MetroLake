@@ -2,7 +2,7 @@
 
 import sys
 
-from Fuentes.simuladores import (
+from Ejecucion.simuladores import (
     SimuladorAcelerometro,
     SimuladorClima,
     SimuladorTorniquetes,

@@ -4,17 +4,17 @@ import os
 from datetime import datetime, timedelta
 
 try:
-    from .accelerometer import SimuladorAcelerometro
-    from .config import TRAMOS
-    from .serializers import exportar_csv, exportar_json, exportar_ndjson
-    from .weather import SimuladorClima
-    from .turnstiles import SimuladorTorniquetes
+    from ..Fuentes.accelerometer import SimuladorAcelerometro
+    from ..Fuentes.config import TRAMOS
+    from ..Persistencia.serializers import exportar_csv, exportar_json, exportar_ndjson
+    from ..Fuentes.weather import SimuladorClima
+    from ..Fuentes.turnstiles import SimuladorTorniquetes
 except ImportError:
-    from accelerometer import SimuladorAcelerometro
-    from config import TRAMOS
-    from serializers import exportar_csv, exportar_json, exportar_ndjson
-    from weather import SimuladorClima
-    from turnstiles import SimuladorTorniquetes
+    from Fuentes.accelerometer import SimuladorAcelerometro
+    from Fuentes.config import TRAMOS
+    from Persistencia.serializers import exportar_csv, exportar_json, exportar_ndjson
+    from Fuentes.weather import SimuladorClima
+    from Fuentes.turnstiles import SimuladorTorniquetes
 
 
 def generar_dataset_completo(dias=7, intervalo_vibracion_seg=30, intervalo_pasajeros_min=1,
