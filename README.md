@@ -174,25 +174,31 @@ Cada evento recibe el campo adicional `_tipo_fuente`, cuyo valor es `vibracion`,
 El modulo `Integraciones/publicador_gcp.py` reutiliza los tres simuladores existentes y publica cada tipo de evento en un tema independiente:
 
 ```text
-vibracion  -> tema de vibracion
-pasajeros  -> tema de pasajeros
-clima      -> tema de clima
+vibracion  -> tema-metro-vibracion
+pasajeros  -> tema-metro-pasajeros
+clima      -> tema-metro-clima
 ```
 
-Configura manualmente en PowerShell el proyecto y los tres temas que creaste en Google Cloud:
+Con la configuracion que ya quedó validada en este proyecto, usa estos valores reales:
 
 ```powershell
-$env:GCP_PROJECT_ID = "tu-proyecto-gcp-id"
-$env:GCP_TOPIC_VIBRACION = "tema-metro-vibracion"
-$env:GCP_TOPIC_PASAJEROS = "tema-metro-pasajeros"
-$env:GCP_TOPIC_CLIMA = "tema-metro-clima"
+[System.Environment]::SetEnvironmentVariable("GCP_PROJECT_ID", "terraform-demo-metro", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_TOPIC_VIBRACION", "tema-metro-vibracion", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_TOPIC_PASAJEROS", "tema-metro-pasajeros", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_TOPIC_CLIMA", "tema-metro-clima", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_DURACION_SEG", "60", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_INTERVALO_SEG", "1", "Process")
 ```
 
-La cuenta que ejecute el programa necesita el rol `Pub/Sub Publisher`. Si ejecutas fuera de Google Cloud, configura también una cuenta de servicio. No subas esta clave al repositorio:
+Si ya tienes permisos suficientes en la cuenta de Google y quieres ejecutar el proyecto desde tu equipo local, primero autentica la sesion de tu usuario con ADC:
 
 ```powershell
-$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\ruta\segura\cuenta-servicio.json"
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project terraform-demo-metro
 ```
+
+Como ya se comprobó en este proyecto, no es necesario usar `GOOGLE_APPLICATION_CREDENTIALS` si vas a trabajar con tu cuenta de usuario autenticada localmente. Solo se usa cuando se quiere forzar una cuenta de servicio JSON.
 
 Ejecuta el publicador desde la raíz del proyecto:
 
@@ -201,6 +207,27 @@ python -m Integraciones.publicador_gcp
 ```
 
 Por defecto publica durante 60 segundos. Puedes cambiar la duración y el intervalo con `GCP_DURACION_SEG` y `GCP_INTERVALO_SEG`. Este módulo no modifica los simuladores ni reemplaza el streaming local.
+
+### Verificar que los topics existen
+
+```powershell
+gcloud pubsub topics list --project=terraform-demo-metro
+```
+
+La salida esperada incluye:
+
+```text
+projects/terraform-demo-metro/topics/tema-metro-vibracion
+projects/terraform-demo-metro/topics/tema-metro-pasajeros
+projects/terraform-demo-metro/topics/tema-metro-clima
+```
+
+### Diferencia entre topic y subscription
+
+- `tema-metro-clima`, `tema-metro-pasajeros`, `tema-metro-vibracion` son los topics que recibe el publicador.
+- `sub-metro-clima-bq`, `sub-metro-pass-bq`, `sub-metro-vib-bq` son las subscriptions que conectan esos mensajes con BigQuery.
+
+El script `Integraciones/publicador_gcp.py` solo necesita los topics, no las subscriptions.
 
 ## 8. Funcionamiento del clima y fallback
 

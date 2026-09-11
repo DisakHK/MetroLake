@@ -17,17 +17,17 @@ Integraciones/publicador_gcp.py
 
 ## 1. Datos que debes definir
 
-Antes de ejecutar el código, define estos valores:
+En este proyecto ya quedaron validados estos valores reales:
 
-| Dato | Ejemplo | Uso |
+| Dato | Valor actual | Uso |
 |---|---|---|
-| ID del proyecto GCP | `metro-datos-123` | Identifica el proyecto de Google Cloud. |
+| ID del proyecto GCP | `terraform-demo-metro` | Identifica el proyecto de Google Cloud. |
 | Tema de vibración | `tema-metro-vibracion` | Recibe eventos de acelerómetros. |
 | Tema de pasajeros | `tema-metro-pasajeros` | Recibe eventos de torniquetes. |
 | Tema de clima | `tema-metro-clima` | Recibe lecturas de precipitación. |
-| Archivo de credenciales | `cuenta-servicio.json` | Permite autenticar el programa fuera de GCP. |
+| Credenciales locales | `gcloud auth application-default login` | Permite autenticar el programa sin JSON. |
 
-Los nombres son ejemplos. Debes reemplazarlos con los valores reales de tu proyecto.
+Los nombres de los topics no llevan el sufijo `-sub`; ese sufijo pertenece a las suscripciones de BigQuery.
 
 ## 2. Crear o seleccionar el proyecto de GCP
 
@@ -79,75 +79,40 @@ gcloud pubsub topics create tema-metro-clima --project=TU_PROJECT_ID
 
 El código no crea los temas automáticamente. Deben existir antes de ejecutar `Integraciones/publicador_gcp.py`.
 
-## 5. Crear una cuenta de servicio
+## 5. Autenticación local recomendada
 
-Si ejecutarás Python desde tu computador, crea una cuenta de servicio:
-
-1. Ve a **IAM y administración**.
-2. Entra a **Cuentas de servicio**.
-3. Selecciona **Crear cuenta de servicio**.
-4. Asígnale un nombre, por ejemplo `publicador-metro`.
-5. Asigna el rol **Pub/Sub Publisher**.
-6. Finaliza la creación.
-
-El permiso mínimo necesario es publicar mensajes en los tres temas. Evita usar permisos de propietario o editor si no son necesarios.
-
-## 6. Crear la clave de la cuenta de servicio
-
-Dentro de la cuenta de servicio:
-
-1. Abre la pestaña **Claves**.
-2. Selecciona **Agregar clave**.
-3. Elige **Crear clave nueva**.
-4. Selecciona formato **JSON**.
-5. Descarga el archivo en una ubicación segura.
-
-No cambies el contenido de la clave y no la subas a GitHub. Google solo permite descargarla una vez; si se expone, revócala y crea otra.
-
-## 7. Configurar autenticación en Windows
-
-Instala la librería desde PowerShell, en la raíz del proyecto:
+Para este proyecto, la forma funcional y valida fue usar la autenticación por defecto de Google Cloud en tu cuenta local, en lugar de un JSON de cuenta de servicio.
 
 ```powershell
-python -m pip install google-cloud-pubsub
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project terraform-demo-metro
 ```
 
-Indica la ruta de la clave descargada:
+Con esto, Python y la librería `google-cloud-pubsub` pueden autenticarse usando Application Default Credentials (ADC) sin necesidad de crear o mantener un archivo `cuenta-servicio.json`.
 
-```powershell
-$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\ruta\segura\publicador-metro.json"
-```
+> Si tu administrador bloqueó la descarga de claves JSON, esta es la opción recomendada y ya quedó verificada.
 
-La variable solo queda configurada en la sesión actual de PowerShell. Para confirmar que existe sin mostrar el contenido de la clave:
-
-```powershell
-Test-Path $env:GOOGLE_APPLICATION_CREDENTIALS
-```
-
-El resultado esperado es:
-
-```text
-True
-```
-
-## 8. Configurar proyecto y temas
+## 6. Configurar proyecto y temas
 
 En la misma sesión de PowerShell, define las variables que lee el código:
 
 ```powershell
-$env:GCP_PROJECT_ID = "TU_PROJECT_ID"
-$env:GCP_TOPIC_VIBRACION = "tema-metro-vibracion"
-$env:GCP_TOPIC_PASAJEROS = "tema-metro-pasajeros"
-$env:GCP_TOPIC_CLIMA = "tema-metro-clima"
+[System.Environment]::SetEnvironmentVariable("GCP_PROJECT_ID", "terraform-demo-metro", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_TOPIC_VIBRACION", "tema-metro-vibracion", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_TOPIC_PASAJEROS", "tema-metro-pasajeros", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_TOPIC_CLIMA", "tema-metro-clima", "Process")
 ```
+
+Si quieres dejar estas variables guardadas para futuras sesiones, puedes usar `"User"` en lugar de `"Process"`.
 
 Verifica que estén definidas:
 
 ```powershell
-$env:GCP_PROJECT_ID
-$env:GCP_TOPIC_VIBRACION
-$env:GCP_TOPIC_PASAJEROS
-$env:GCP_TOPIC_CLIMA
+[System.Environment]::GetEnvironmentVariable("GCP_PROJECT_ID", "Process")
+[System.Environment]::GetEnvironmentVariable("GCP_TOPIC_VIBRACION", "Process")
+[System.Environment]::GetEnvironmentVariable("GCP_TOPIC_PASAJEROS", "Process")
+[System.Environment]::GetEnvironmentVariable("GCP_TOPIC_CLIMA", "Process")
 ```
 
 No agregues estos valores como claves dentro del código si el repositorio será público. Los nombres de temas no son secretos, pero mantenerlos como configuración facilita cambiar de proyecto.
@@ -158,6 +123,14 @@ Desde la carpeta raíz `ProyectoMetro`:
 
 ```powershell
 python -m Integraciones.publicador_gcp
+```
+
+La ejecución ya quedó verificada con este proyecto. La salida esperada es similar a:
+
+```text
+Enviado clima -> ID GCP: 21778070818337697
+Enviado vibracion -> ID GCP: 21778451765662594
+Enviado pasajeros -> ID GCP: 21778288952457217
 ```
 
 El programa:
@@ -179,19 +152,19 @@ Enviado clima -> ID GCP: 1234567890123458
 
 ## 10. Controlar duración e intervalo
 
-Por defecto, el publicador funciona durante 60 segundos con un intervalo de un segundo. Puedes cambiar esos valores:
+Por defecto, el publicador funciona durante 60 segundos con un intervalo de un segundo. Puedes cambiar esos valores en la misma sesión:
 
 ```powershell
-$env:GCP_DURACION_SEG = "120"
-$env:GCP_INTERVALO_SEG = "0.5"
+[System.Environment]::SetEnvironmentVariable("GCP_DURACION_SEG", "120", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_INTERVALO_SEG", "0.5", "Process")
 python -m Integraciones.publicador_gcp
 ```
 
 Para una prueba corta:
 
 ```powershell
-$env:GCP_DURACION_SEG = "10"
-$env:GCP_INTERVALO_SEG = "1"
+[System.Environment]::SetEnvironmentVariable("GCP_DURACION_SEG", "10", "Process")
+[System.Environment]::SetEnvironmentVariable("GCP_INTERVALO_SEG", "1", "Process")
 python -m Integraciones.publicador_gcp
 ```
 
@@ -199,20 +172,24 @@ Detén la ejecución antes de tiempo con `Ctrl+C`.
 
 ## 11. Verificar que los mensajes llegan
 
-Puedes comprobar los mensajes creando suscripciones temporales. Una suscripción permite leer los mensajes publicados en un tema.
+Para esta configuración ya existen las subscriptions de BigQuery:
+
+- `sub-metro-vib-bq`
+- `sub-metro-pass-bq`
+- `sub-metro-clima-bq`
+
+Puedes comprobar los mensajes con una suscripción temporal o directamente revisando que las subscriptions ya están recibiendo datos.
 
 ```bash
-gcloud pubsub subscriptions create prueba-vibracion \
-  --topic=tema-metro-vibracion \
-  --project=TU_PROJECT_ID
-
-gcloud pubsub subscriptions pull prueba-vibracion \
-  --limit=5 \
-  --auto-ack \
-  --project=TU_PROJECT_ID
+gcloud pubsub subscriptions pull sub-metro-clima-bq --limit=5 --auto-ack --project=terraform-demo-metro
 ```
 
-Repite el procedimiento para pasajeros y clima cambiando el nombre del tema y la suscripción.
+Repite el procedimiento para pasajeros y vibración cambiando el nombre de la subscription:
+
+```bash
+gcloud pubsub subscriptions pull sub-metro-pass-bq --limit=5 --auto-ack --project=terraform-demo-metro
+gcloud pubsub subscriptions pull sub-metro-vib-bq --limit=5 --auto-ack --project=terraform-demo-metro
+```
 
 Una lectura climática debe contener campos como:
 
@@ -242,13 +219,13 @@ Solución: define las cuatro variables `GCP_*` de la sección 8.
 
 ### No se encuentran las credenciales
 
-Verifica:
+Con la configuración actual del proyecto, la forma recomendada es autenticarse con `gcloud auth application-default login` y luego ejecutar el script. Si quieres verificar la autenticación en local:
 
 ```powershell
-Test-Path $env:GOOGLE_APPLICATION_CREDENTIALS
+gcloud auth application-default print-access-token
 ```
 
-La ruta debe apuntar al archivo JSON descargado de Google Cloud.
+Si el comando devuelve un token, entonces las credenciales por defecto quedaron configuradas correctamente.
 
 ### Permiso denegado
 
@@ -265,6 +242,16 @@ Ejecuta:
 ```powershell
 python -m pip install google-cloud-pubsub
 ```
+
+### El proyecto no es el correcto
+
+Si `gcloud pubsub topics list` falla con un proyecto number, entonces debes usar el `PROJECT_ID`, no el `PROJECT_NUMBER`.
+
+```powershell
+gcloud projects list
+```
+
+Y luego usa el valor de `PROJECT_ID` en la configuración (`terraform-demo-metro` en este caso).
 
 ## 13. Lista de comprobación
 
